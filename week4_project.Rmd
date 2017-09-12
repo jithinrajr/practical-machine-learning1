@@ -1,0 +1,116 @@
+---
+title: "week 4 project"
+author: "Jithin Raj R"
+date: "August 30, 2017"
+output: html_document
+---
+
+## peer-graded Assignment: Prediction assignment Write up
+
+```{r}
+#reading Test and train data
+
+library(caret)
+library(ggplot2)
+
+training <- read.csv(file = "training.csv", na.strings = c("NA","#DIV/0!"))
+testing <- read.csv(file = "testing.csv", na.strings = c("NA","#DIV/0!"))
+
+
+```
+
+### Removing variables with more than 60% NA values
+
+```{r}
+
+#removing variable with more than 60% NA values
+na.sum <-colSums(is.na(training))
+na.names <- names(na.sum)[na.sum/nrow(training) >.6]
+training <- training[,setdiff(colnames(training), na.names)]
+
+#removing variable that are not useful for building model
+ training <- training[,-c(1:7)]
+
+```
+
+
+###  cross validation
+
+- training data set is split into training(75%) and validation set (25%) using createDatapartition()
+- 10-fold cross validation is applied using trainControl()
+
+### Expected Out-of-sample error rate 
+
+- Expected out of sample error rate corresponds to accuracy in the test data set. 
+- It is the rate of misclassified observation to total observation
+- Cross validation data set gives good estimate of out of sample error rate in test data
+
+```{r}
+
+set.seed(1234)
+intrain <- createDataPartition(training$classe, p=.75, list = FALSE)
+
+my_train <- training[intrain,]
+my_test <- training[-intrain,]
+tcontrol <- trainControl(method = "cv", number = 10, preProcOptions = "pca", verboseIter = FALSE, allowParallel = TRUE)
+
+
+```
+
+## Building Models 
+
+### Random Forest
+
+```{r}
+library(rpart)
+library(randomForest)
+
+suppressPackageStartupMessages(model1 <- train(y=my_train[,53], x=my_train[,-53] , method="rf",trControl = tcontrol))
+rf <- model1
+
+```
+
+
+
+```{r}
+# validation set is used to generate confusion matrix
+pred <- predict(model1, my_test , data=my_test)
+confusionMatrix(pred, my_test$classe)
+```
+
+####performance of random forest
+
+- Validation set resulted in Accuracy of .9931 and kappa value of 0.9912
+
+
+
+### boosted tree
+
+```{r, message= FALSE}
+
+garbage <- capture.output(gbm <- train(y=my_train[,53], x=my_train[,-53] , method="gbm",trControl = tcontrol))
+```
+
+```{r}
+# validation set is used to generate confusion matrix
+gbm.pred <- predict(gbm, my_test)
+confusionMatrix(gbm.pred , my_test$classe)
+
+```
+
+#### performance of boosted tree
+
+- Applying Validation data set resulted in accuracy value of 0.9659 and kappa value of .9659
+
+
+### Predicting using test data
+
+- Random forest model is performing better in than boosted tree. so random forest is used to predict the outcome of      test data
+
+```{r}
+
+pred.test <- predict(rf, testing)
+pred.test
+
+```
+
